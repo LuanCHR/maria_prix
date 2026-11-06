@@ -86,7 +86,7 @@
   .ask input:focus { outline: 2px solid #fff; }
   .ask button.again { width: 100%; }
   button.ghost { background: transparent; color: var(--muted); border: 0; font: inherit; padding: 8px; cursor: pointer; }
-  .ask .note { color: var(--muted); font-size: .9rem; min-height: 1.2em; }
+  .ask .note { color: #ffb4b4; font-size: 1rem; font-weight: 600; min-height: 1.2em; }
   .ask .note a { color: #fff; }
   [hidden] { display: none !important; }
   #confetti { position: fixed; inset: 0; pointer-events: none; }
@@ -208,10 +208,7 @@ TEAMS.forEach(t => {
 
 // ---- CONFIGURAÇÃO (preencha antes de publicar) ----
 const CONFIG = {
-  // Link do seu formulário no Formspree (formspree.io), tipo "https://formspree.io/f/abcdwxyz".
-  // O número que ela digitar chega no seu e-mail.
-  FORM_ENDPOINT: "",
-  // Seu WhatsApp com país e DDD, só números (ex.: "5511999999999"). Opcional: vira um plano B se o envio falhar.
+  // Seu WhatsApp com país e DDD, só números (ex.: "5511999999999").
   MEU_WHATSAPP: "5511930003532",
   // Se ela errar na 1ª tentativa, a 2ª tentativa dela sempre ganha.
   GARANTIR_VITORIA_NA_2A: true
@@ -220,25 +217,15 @@ const CONFIG = {
 let tentativas = 0;
 let busy = false;
 
-async function enviarNumero(dados) {
-  if (!CONFIG.FORM_ENDPOINT) throw new Error("FORM_ENDPOINT não configurado");
-  const r = await fetch(CONFIG.FORM_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify(dados)
-  });
-  if (!r.ok) throw new Error("falha " + r.status);
-}
-
 function renderAsk(chosen) {
   const ask = $("ask");
   ask.hidden = false;
   $("again").hidden = true;
   ask.innerHTML = `
-    <p class="q">Dica: número de uma princesa</p>
+    <p class="q">Tô merecendo seu número, princesa?</p>
     <form id="askForm" novalidate>
       <input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" aria-label="Seu número">
-      <button class="again" type="submit">Enviar 🖤</button>
+      <button class="again" type="button" id="send">Enviar 🖤</button>
       <button class="ghost" type="button" id="notNow">Agora não</button>
       <div class="note" id="note"></div>
     </form>`;
@@ -248,24 +235,26 @@ function renderAsk(chosen) {
     $("again").hidden = false;
   };
 
-  $("askForm").onsubmit = async (e) => {
-    e.preventDefault();
+  const enviar = () => {
     const note = $("note");
     const digits = $("tel").value.replace(/\D/g, "");
-    if (digits.length < 10) { note.textContent = "Confere o número com o DDD, por favor."; return; }
-    note.textContent = "Enviando...";
-    try {
-      await enviarNumero({ numero: $("tel").value.trim(), equipe: chosen.name, tentativas });
-      ask.innerHTML = `<p class="q">Recebido 🖤 Já já eu te chamo.</p>`;
-    } catch (err) {
-      let html = "Não consegui enviar agora. Tenta de novo?";
-      if (CONFIG.MEU_WHATSAPP) {
-        const txt = encodeURIComponent("Oi Luan! Ganhei o GP 🏁");
-        html += ` <a href="https://wa.me/${CONFIG.MEU_WHATSAPP}?text=${txt}" target="_blank" rel="noopener">Ou me chama direto no WhatsApp.</a>`;
-      }
-      note.innerHTML = html;
+    if (digits.length < 8) {
+      note.textContent = digits.length === 0 ? "Digita seu número aí, princesa 🖤" : "Faltou número aí, confere com o DDD 🖤";
+      return;
     }
+    // o número digitado não é enviado pra lugar nenhum
+    let html = `<p class="q">Perdão, mas eu não recebo seu número pelo site, ia dar muito trabalho e eu tava com sono</p>`;
+    if (CONFIG.MEU_WHATSAPP) {
+      const txt = encodeURIComponent("Oi Luan, aqui é a Maria");
+      html += `<a class="wpp" href="https://wa.me/${CONFIG.MEU_WHATSAPP}?text=${txt}" target="_blank" rel="noopener">Me chama no WhatsApp</a>`;
+    }
+    ask.innerHTML = html;
   };
+
+  // funciona por clique, por Enter e por envio do formulário (a prévia do chat pode bloquear o submit)
+  $("send").onclick = enviar;
+  $("tel").onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); enviar(); } };
+  $("askForm").onsubmit = (e) => { e.preventDefault(); enviar(); };
 }
 
 async function startRace(chosen) {
@@ -331,7 +320,7 @@ function showResult(chosen, order) {
 
   if (won) {
     top.innerHTML = `<div class="big">Parabéns lindinha 🖤</div>
-      <p class="msg">A ${chosen.name} venceu e você acertou. Seu prêmio chegou.</p>`;
+      <p class="msg">A ${chosen.name} venceu e você acertou.</p>`;
     renderAsk(chosen);
   } else {
     top.innerHTML = `<div class="big">Você ficou em ${pos}º lugar</div>
